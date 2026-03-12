@@ -1,0 +1,51 @@
+name: Update Profile README
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:       # Allows manual triggering
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Fetch public repos and update README
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ORG="Lamassau"
+
+          # Fetch public repos with name, description, and URL
+          REPO_LIST=$(gh api \
+            --paginate \
+            "/orgs/$ORG/repos?type=public&sort=updated&per_page=100" \
+            --jq '.[] | select(.archived == false) | "- [**\(.name)**](\(.html_url))" + (if .description then " — \(.description)" else "" end)')
+
+          if [ -z "$REPO_LIST" ]; then
+            REPO_LIST="_No public repositories found._"
+          fi
+
+          # Escape special characters for use in sed
+          ESCAPED=$(echo "$REPO_LIST" | sed 's/[&/\\]/\\&/g' | awk '{printf "%s\\n", $0}')
+
+          # Replace content between the markers
+          sed -i "/<!-- REPO_LIST_START -->/,/<!-- REPO_LIST_END -->/{
+            /<!-- REPO_LIST_START -->/!{/<!-- REPO_LIST_END -->/!d}
+            /<!-- REPO_LIST_START -->/a\\
+          $ESCAPED
+          }" profile/README.md
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add profile/README.md
+          git diff --cached --quiet || git commit -m "chore: update public repo list [skip ci]"
+          git push
