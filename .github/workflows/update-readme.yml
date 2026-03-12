@@ -26,7 +26,7 @@ jobs:
           REPO_LIST=$(gh api \
             --paginate \
             "/orgs/$ORG/repos?type=public&sort=updated&per_page=100" \
-            --jq '.[] | select(.archived == false) | "- [**\(.name)**](\(.html_url))" + (if .description then " — \(.description)" else "" end)')
+            --jq '.[] | select(.archived == false) | select(.name != ".github") | "- [**\(.name)**](\(.html_url))" + (if .description then " — \(.description)" else "" end)')
 
           if [ -z "$REPO_LIST" ]; then
             REPO_LIST="_No public repositories found._"
